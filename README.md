@@ -208,8 +208,9 @@ const props = {
 After defining some `types`, you need to create a selector from the defined `types` key's name :
 
 ```javascript
-const classes = document.querySelectorAll(Object.keys(props).map(className => `[class*="${className}-"]`));
-const selectors = classes.join(", ");
+const classes = Object.keys(props).map(className => `[class*="${className}-"]`);
+
+const selectors = document.querySelectorAll(classes.join(", "));
 ```
 
 #### Putting All Together
@@ -267,9 +268,9 @@ const props = {
   mt: "marginTop"
 };
 
-const classes = document.querySelectorAll(Object.keys(props).map(className => `[class*="${className}-"]`));
+const classes = Object.keys(props).map(className => `[class*="${className}-"]`);
 
-const selectors = classes.join(", ");
+const selectors = document.querySelectorAll(classes.join(", "));
 
 selectors.forEach(selector => {
   const styler = new makeTenoxUI({
