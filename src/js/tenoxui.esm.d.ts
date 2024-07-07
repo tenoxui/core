@@ -1,12 +1,12 @@
 /*!
- * tenoxui/core v0.11.0
+ * tenoxui/core v1.0.0-alpha.1
  * Licensed under MIT (https://github.com/tenoxui/css/blob/main/LICENSE)
  */
-interface makeTenoxUIParams {
-    element: HTMLElement;
+interface MakeTenoxUIParams {
+    element: HTMLElement | NodeListOf<HTMLElement>;
     property?: Property;
     values?: DefinedValue;
-    breakpoint?: Breakpoint;
+    breakpoint?: Breakpoint[];
 }
 type Property = {
     [key: string]: string | string[] | {
@@ -18,23 +18,34 @@ type Breakpoint = {
     name: string;
     min?: number;
     max?: number;
-}[];
+};
 type DefinedValue = {
     [key: string]: {
         [key: string]: string;
     } | string;
 };
 declare class makeTenoxUI {
-    private htmlElement;
-    private styleAttribute;
-    private valueRegistry;
-    private breakpoints;
-    constructor({ element, property, values, breakpoint }: makeTenoxUIParams);
-    addStyle(type: string, value: string, unit: string): void;
+    private readonly htmlElement;
+    private readonly styleAttribute;
+    private readonly valueRegistry;
+    private readonly breakpoints;
+    constructor({ element, property, values, breakpoint }: MakeTenoxUIParams);
+    private valueHandler;
+    private setCssVar;
+    private setCustomValue;
+    private setDefaultValue;
+    private resizeListener;
     private handleResponsive;
+    private matchBreakpoint;
     private camelToKebab;
     private pseudoHandler;
+    private getPropName;
+    private getInitialValue;
+    private revertStyle;
+    private parseClassName;
+    addStyle(type: string, value: string, unit: string): void;
     applyStyles(className: string): void;
     applyMultiStyles(styles: string): void;
+    cleanup(): void;
 }
 export { makeTenoxUI };
