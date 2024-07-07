@@ -77,24 +77,18 @@ class makeTenoxUI {
       }
     });
   }
-  private resizeListener: (() => void) | null = null;
   private handleResponsive(breakpointPrefix: string, type: string, value: string, unit: string): void {
-    const applyStyle = () => this.addStyle(type, value, unit);
     const handleResize = () => {
       const windowWidth = window.innerWidth;
       const matchPoint = this.breakpoints.find(bp => this.matchBreakpoint(bp, breakpointPrefix, windowWidth));
       if (matchPoint) {
-        applyStyle();
+        this.addStyle(type, value, unit);
       } else {
-        (this.htmlElement.style as any)[type] = "";
+        this.htmlElement.style[type] = "";
       }
     };
-    if (this.resizeListener) {
-      window.removeEventListener("resize", this.resizeListener);
-    }
-    this.resizeListener = handleResize;
-    window.addEventListener("resize", this.resizeListener);
     handleResize();
+    window.addEventListener("resize", handleResize);
   }
   private matchBreakpoint(bp: Breakpoint, prefix: string, width: number): boolean {
     if (bp.name !== prefix) return false;
@@ -184,11 +178,6 @@ class makeTenoxUI {
   }
   public applyMultiStyles(styles: string): void {
     styles.split(/\s+/).forEach(style => this.applyStyles(style));
-  }
-  public cleanup(): void {
-    if (this.resizeListener) {
-      window.removeEventListener("resize", this.resizeListener);
-    }
   }
 }
 
