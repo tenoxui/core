@@ -4,6 +4,16 @@
 
 This repository contain a core component of TenoxUI CSS Framework.
 
+## Features
+
+- Generated as `inline-style`
+- Support all `CSS` properties (including prefixes) and values
+- `CSS` variable class names and properties
+- Responsive feature
+- `:hover` and `:focus` pseudo class
+- Easy to customizing both style logics and values
+- Work with state in js
+
 ## Installation
 
 ### Using NPM
@@ -28,22 +38,6 @@ import { makeTenoxUI } from "@tenoxui/core";
 
 `tenoxui/core` only exporting class `makeTenoxUI`.
 
-### Types
-
-```typescript
-interface makeTenoxUIParams {
-  element: HTMLElement;
-  property: Property;
-  values?: DefinedValue;
-  breakpoint?: Breakpoint;
-}
-type Property = {
-  [key: string]: string | string[] | { property?: string | string[]; value?: string };
-};
-type DefinedValue = { [key: string]: { [key: string]: string } | string };
-type Breakpoint = { name: string; min?: number; max?: number }[];
-```
-
 ### Constructor
 
 `makeTenoxUI` will take 4 parameters defined as an object :
@@ -66,7 +60,220 @@ class makeTenoxUI {
 }
 ```
 
+#### `element`
+
+This parameter is where the style should applied, you can define the selector here and this is where the style will be applied.
+
+Usage :
+
+```javascript
+new makeTenoxUI({
+  element: document.querySelector(".my-element")
+  /* ... */
+});
+```
+
+#### `property`
+
+Of course we need to define the `CSS` properties to work with. This parameter is responsible for handling the `type` (the CSS property's handler) and `property`. There are several `property` you can define :
+
+1. Regular property
+
+This is the basic example for defining the `type` and `property` :
+
+```javascript
+const props = {
+  // type: property
+  m: "margin",
+  p: "padding"
+};
+```
+
+Usage :
+
+```html
+<div class="m-1rem p-8px"></div>
+```
+
+Same as :
+
+```css
+div {
+  margin: 1rem;
+  padding: 8px;
+}
+```
+
+2. Multi propeties in one type
+
+You can use an array of property to add same value into multiple propeties, here's the example :
+
+```javascript
+const props = {
+  d: "display",
+  size: ["width", "height"],
+  "flex-parent": ["alignItems", "justify-content"], // you can define with both `camelCase` or `kebab-case`
+  transition: ["transition", "-webkit-transition"]
+};
+```
+
+Usage :
+
+```html
+<div class="d-flex flex-parent-center box-100px">hello</div>
+```
+
+Same as :
+
+```css
+div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100px;
+  height: 100px;
+}
+```
+
+3. CSS variable as property
+   Maybe you want to change the CSS variable, you can add `--` before the property's name, and it will treated as CSS variable property. Example :
+
+```javascript
+const props = {
+  color: "--my-color",
+  text: "color"
+};
+```
+
+Usage :
+
+```html
+<div class="color-blue text-$my-color"></div>
+```
+
+Same as :
+
+```css
+div {
+  --my-color: blue;
+  color: var(--my-color);
+}
+```
+
+4. Custom value
+
+You can also define custom value. You can set where the value will take place. Example :
+
+```javascript
+const props = {
+  gradient: {
+    property: "background",
+    value: "linear-gradient(to right, {value}, blue, {value})"
+  },
+  blur: {
+    property: "filter",
+    value: "blur({value})"
+  }
+};
+```
+
+The `{value}` will replaced with the value from your class names.
+
+Usage :
+
+```html
+<div class="gradient-red blur-10px"></div>
+```
+
+Same as :
+
+```css
+div {
+  background: linear-gradient(to right, red, blue, red);
+  filter: blur(10px);
+}
+```
+
+#### `values`
+
+You can define your `values` that class names can use. Example :
+
+```javascript
+new makeTenoxUI({
+  element: "...",
+  property: {
+    w: "width",
+    p: "padding"
+  },
+  values: {
+    full: "100%",
+    size: "200px",
+    2: "4px"
+  }
+  /* ... */
+});
+```
+
+Usage :
+
+```html
+<body class="w-full">
+  <div class="p-2">Hello</div>
+</body>
+```
+
+Same as :
+
+```css
+body {
+  width: 100%;
+}
+div {
+  padding: 4px;
+}
+```
+
+#### `breakpoint`
+
+This is where you will store the breakpoints. Example :
+
+```javascript
+new makeTenoxUI({
+  property: {
+    bg:"background"
+  }
+  breakpoint: [
+    { name: "max-md", min: 0, max: 678 },
+    { name: "md", min: 678 }
+  ]
+});
+```
+
+Usage :
+
+```html
+<div class="bg-blue max-md:bg-blue md:bg-red">hello</div>
+```
+
+If you want to use the responsive feature, you must use it like the code above, or else it will have some issues, like the styles not handled properly and else. [See more](https://tenoxui.web.app/docs/core/responsive).
+
 ### Methods
+
+### Types
+
+```typescript
+interface makeTenoxUIParams {
+  element: HTMLElement;
+  property: Property;
+  values?: DefinedValue;
+  breakpoint?: Breakpoint;
+}
+type Property = {
+  [key: string]: string | string[] | { property?: string | string[]; value?: string };
+};
+type DefinedValue = { [key: string]: { [key: string]: string } | string };
+type Breakpoint = { name: string; min?: number; max?: number }[];
+```
 
 #### `addStyle`
 
