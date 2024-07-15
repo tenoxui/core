@@ -1,5 +1,5 @@
 /*!
- * tenoxui/core v1.0.0-alpha.3
+ * tenoxui/core v1.0.0-alpha.4
  * Licensed under MIT (https://github.com/tenoxui/css/blob/main/LICENSE)
  */
 
@@ -9,15 +9,23 @@ interface MakeTenoxUIParams {
   property?: Property;
   values?: DefinedValue;
   breakpoint?: Breakpoint[];
+  classes?: Classes;
 }
 // type and property
 type Property = {
-  [key: string]: string | string[] | { property?: string | string[]; value?: string };
+  [type: string]: string | string[] | { property?: string | string[]; value?: string };
 };
 // Breakpoint
 type Breakpoint = { name: string; min?: number; max?: number };
 // value registry
-type DefinedValue = { [key: string]: { [key: string]: string } | string };
+type DefinedValue = { [type: string]: { [value: string]: string } | string };
+// defined class name with exact property
+type Classes = {
+  [property: string]: {
+    [className: string]: string;
+  };
+};
+
 // makeTenoxUI
 class makeTenoxUI {
   // selectors
@@ -28,12 +36,15 @@ class makeTenoxUI {
   private readonly valueRegistry: DefinedValue;
   // breakpoints
   private readonly breakpoints: Breakpoint[];
+  // classes
+  private readonly classes: Classes;
   // makeTenoxUI constructor
-  constructor({ element, property = {}, values = {}, breakpoint = [] }: MakeTenoxUIParams) {
+  constructor({ element, property = {}, values = {}, breakpoint = [], classes = {} }: MakeTenoxUIParams) {
     this.htmlElement = element instanceof HTMLElement ? element : element[0];
     this.styleAttribute = property;
     this.valueRegistry = values;
     this.breakpoints = breakpoint;
+    this.classes = classes;
   }
   // logic for handling all defined value from the classnames
   private valueHandler(type: string, value: string, unit: string): string {
@@ -104,7 +115,11 @@ class makeTenoxUI {
       });
     }
   }
-  // rrgular `types` and `properties` handler
+  // handle custom classes
+  private setCustomClass(type: string, value: string): void {
+    (this.htmlElement.style as any)[type] = value;
+  }
+  // regular `types` and `properties` handler
   private setDefaultValue(properties: string | string[], resolvedValue: string): void {
     // isArray?
     const propsArray = Array.isArray(properties) ? properties : [properties];
@@ -137,7 +152,13 @@ class makeTenoxUI {
     // reason? The pseudo handler not working properly whenever the property defined with `camelCase`
   }
   // responsive className handler
-  private handleResponsive(breakpointPrefix: string, type: string, value: string, unit: string): void {
+  private handleResponsive(
+    breakpointPrefix: string,
+    type: string,
+    value: string,
+    unit: string,
+    propKey?: string
+  ): void {
     const properties = this.styleAttribute[type];
 
     const handleResize = () => {
@@ -145,10 +166,13 @@ class makeTenoxUI {
       const matchPoint = this.breakpoints.find(bp => this.matchBreakpoint(bp, breakpointPrefix, windowWidth));
 
       // apply exact styles if matches
+      console.log("responsive: ", type, value, unit, propKey);
       if (matchPoint) {
         // object `type` style
         if (this.isObjectWithValue(properties)) {
           this.addStyle(type);
+        } else if (propKey && this.classes[propKey]) {
+          this.addStyle(type, value, unit, propKey);
         } else {
           // apply regular style
           this.addStyle(type, value, unit);
@@ -166,15 +190,23 @@ class makeTenoxUI {
   }
 
   // utility to get the type from the property's name
-  private getPropName(type: string): string | string[] {
+  private getPropName(type: string, propKey?: string): string | string[] {
     if (type.startsWith("[--") && type.endsWith("]")) {
       return type.slice(1, -1);
     }
     // is the property was from custom value, or regular property
     const property = (this.styleAttribute[type] as any)?.property || this.styleAttribute[type];
+
     // is the property defined as an array?
-    return Array.isArray(property) ? property.map(this.camelToKebab) : this.camelToKebab(property as string);
+    if (propKey && this.classes[propKey]) {
+      return this.camelToKebab(propKey);
+    } else if (Array.isArray(property)) {
+      return property.map(this.camelToKebab);
+    } else {
+      return this.camelToKebab(property as string);
+    }
   }
+
   // utility method to get the initial value before the pseudo initialization
   private getInitialValue(propsName: string | string[]): { [key: string]: string } | string {
     if (Array.isArray(propsName)) {
@@ -187,39 +219,6 @@ class makeTenoxUI {
       );
     }
     return this.htmlElement.style.getPropertyValue(propsName);
-  }
-
-  private pseudoHandler(type: string, value: string, unit: string, pseudoEvent: string, revertEvent: string): void {
-    // the type's name inside of property
-    const properties = this.styleAttribute[type];
-    // get the property's name
-    const propsName = this.getPropName(type);
-    // get initial style
-    const styleInitValue = this.getInitialValue(propsName);
-
-    // applyStyle logic
-    const applyStyle = () => {
-      // is the propeties an object?
-      if (this.isObjectWithValue(properties)) {
-        // if has "{value}", use regular styling method
-        if (properties.value.includes("{value}")) {
-          this.addStyle(type, value, unit);
-        } else {
-          // if doesn't have any "{value}", get only the type, as className
-          this.addStyle(type);
-        }
-      } else {
-        // else, use default styling
-        this.addStyle(type, value, unit);
-      }
-    };
-
-    // revert style helper
-    const revertStyle = () => this.revertStyle(propsName, styleInitValue);
-
-    // add the listener
-    this.htmlElement.addEventListener(pseudoEvent, applyStyle);
-    this.htmlElement.addEventListener(revertEvent, revertStyle);
   }
 
   // revert value when the listener is done
@@ -236,13 +235,66 @@ class makeTenoxUI {
     }
   }
 
+  // pseudo handler
+  private pseudoHandler(
+    type: string,
+    value: string,
+    unit: string,
+    pseudoEvent: string,
+    revertEvent: string,
+    propKey?: string // conditional css property from this classes
+  ): void {
+    // the type's name inside of property
+    const properties = this.styleAttribute[type];
+    // get the property's name
+    const propsName = propKey ? this.getPropName("", propKey) : this.getPropName(type);
+    // get initial style
+    const styleInitValue = this.getInitialValue(propsName);
+
+    // applyStyle logic
+    const applyStyle = () => {
+      // is the properties an object?
+      if (this.isObjectWithValue(properties)) {
+        // if has "{value}", use regular styling method
+        if (properties.value.includes("{value}")) {
+          this.addStyle(type, value, unit);
+        } else {
+          // if doesn't have any "{value}", get only the type, as className
+          this.addStyle(type);
+        }
+      } else if (propKey && this.classes[propKey][type]) {
+        this.addStyle(type, value, "", propKey);
+      } else {
+        // else, use default styling
+        this.addStyle(type, value, unit);
+      }
+    };
+
+    // revert style helper
+    const revertStyle = () => this.revertStyle(propsName, styleInitValue);
+
+    // add the listener
+    this.htmlElement.addEventListener(pseudoEvent, applyStyle);
+    this.htmlElement.addEventListener(revertEvent, revertStyle);
+  }
+
   // main styler, handling the type, property, and value
-  public addStyle(type: string, value?: string, unit?: string): void {
+  public addStyle(type: string, value?: string, unit?: string, classProp?: string): void {
     // get css property from styleAttribute
     const properties = this.styleAttribute[type];
+    // get class name from custom class
+    const definedClass = this.classes;
+
+    // use className from `definedClass` instead
+    if (definedClass[classProp]) {
+      // apply style using setCustomClass method
+      this.setCustomClass(classProp, value);
+      return;
+    }
 
     // if no value is provided and properties is an object with a 'value' key, use that value
     if (!value && this.isObjectWithValue(properties)) {
+      // use value from custom value
       value = properties.value;
     }
 
@@ -252,7 +304,7 @@ class makeTenoxUI {
     // compute values
     let resolvedValue = this.valueHandler(type, value, unit || "");
 
-    // logic to apply the styles
+    // other condition to apply the styles
     // css variable className
     if (type.startsWith("[--") && type.endsWith("]")) {
       this.setCssVar(type.slice(1, -1), resolvedValue);
@@ -266,6 +318,7 @@ class makeTenoxUI {
       this.setDefaultValue(properties as string | string[], resolvedValue);
     }
   }
+
   // function to match the classnames with the correct handler
   private parseClassName(
     className: string
@@ -297,63 +350,85 @@ class makeTenoxUI {
     );
   }
 
-  // class name handler
   public applyStyles(className: string): void {
-    // check for prefix
+    // split className, get the prefix and the actual className
     const [prefix, type] = className.split(":");
     const getType = type || prefix;
     const getPrefix = type ? prefix : undefined;
 
-    // check if the type directly matches a property with a predefined value
-    if (this.styleAttribute[getType] && this.isObjectWithValue(this.styleAttribute[getType])) {
-      const properties = this.styleAttribute[getType];
+    // handle predefined styles in styleAttribute
+    if (this.handlePredefinedStyle(getType, getPrefix)) return;
 
-      if (this.isObjectWithValue(properties)) {
-        const value = properties.value;
+    // handle custom classes
+    if (this.handleCustomClass(getType, getPrefix)) return;
 
-        // if the classname has prefix
-        if (getPrefix) {
-          switch (getPrefix) {
-            // hover prefix
-            case "hover":
-              this.pseudoHandler(getType, value, "", "mouseover", "mouseout");
-              break;
-            // focus prefix
-            case "focus":
-              this.pseudoHandler(getType, value, "", "focus", "blur");
-              break;
-            // responsive breakpoints
-            default:
-              this.handleResponsive(getPrefix, getType, value, "");
-          }
-        } else {
-          this.addStyle(getType);
-        }
-        return;
-      }
-    }
-
-    // if not, proceed with the parser
+    // Parse and apply regular styles
     const parts = this.parseClassName(className);
     if (!parts) return;
-    let [parsedPrefix, parsedType, value, unit] = parts;
 
-    // default handler, if the class name has prefix
-    if (parsedPrefix) {
-      switch (parsedPrefix) {
-        case "hover":
-          this.pseudoHandler(parsedType, value, unit, "mouseover", "mouseout");
-          break;
-        case "focus":
-          this.pseudoHandler(parsedType, value, unit, "focus", "blur");
-          break;
-        default:
-          this.handleResponsive(parsedPrefix, parsedType, value, unit);
+    const [parsedPrefix, parsedType, value, unit] = parts;
+    this.applyParsedStyle(parsedPrefix, parsedType, value, unit);
+  }
+
+  private handlePredefinedStyle(type: string, prefix?: string): boolean {
+    const properties = this.styleAttribute[type];
+    if (properties && this.isObjectWithValue(properties)) {
+      const value = properties.value;
+      if (prefix) {
+        this.applyPrefixedStyle(prefix, type, value, "");
+      } else {
+        this.addStyle(type);
       }
-    } else {
-      // apply default style
-      this.addStyle(parsedType, value, unit);
+      return true;
     }
+    return false;
+  }
+
+  private handleCustomClass(type: string, prefix?: string): boolean {
+    const propKey = this.getParentClass(type);
+    if (propKey) {
+      const value = this.classes[propKey][type];
+      if (prefix) {
+        this.applyPrefixedStyle(prefix, type, value, "", propKey);
+      } else {
+        this.addStyle(type, value, "", propKey);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  private applyParsedStyle(prefix: string | undefined, type: string, value: string, unit: string | undefined): void {
+    if (prefix) {
+      this.applyPrefixedStyle(prefix, type, value, unit);
+    } else {
+      this.addStyle(type, value, unit);
+    }
+  }
+
+  private applyPrefixedStyle(prefix: string, type: string, value: string, unit: string, propKey?: string): void {
+    switch (prefix) {
+      case "hover":
+        this.pseudoHandler(type, value, unit, "mouseover", "mouseout", propKey);
+        break;
+      case "focus":
+        this.pseudoHandler(type, value, unit, "focus", "blur", propKey);
+        break;
+      default:
+        this.handleResponsive(prefix, type, value, unit, propKey);
+    }
+  }
+
+  // get parent css property from custom classes
+  private getParentClass(className: string): string | null {
+    const classObject = this.classes;
+    for (const cssProperty in classObject) {
+      if (classObject[cssProperty].hasOwnProperty(className)) {
+        // return the property
+        return cssProperty;
+      }
+    }
+    return null;
   }
 
   // just applyStyles, but with more confidential :)
