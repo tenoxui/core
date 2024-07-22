@@ -457,7 +457,7 @@ class makeTenoxUI {
           // handle prefix
           this.applyPrefixedStyle(prefix, type, value, "", propKey);
         } else {
-          console.log(propKey);
+          
           // handle default style
           this.addStyle(type, value, "", propKey);
         }
