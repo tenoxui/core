@@ -1,12 +1,12 @@
 /*!
- * tenoxui/core v1.0.0-alpha.4
+ * tenoxui/core v1.0.0
  * Licensed under MIT (https://github.com/tenoxui/css/blob/main/LICENSE)
  */
 
 // makeTenoxUI constructor bparam
 interface MakeTenoxUIParams {
   element: HTMLElement | NodeListOf<HTMLElement>;
-  property?: Property;
+  property: Property;
   values?: DefinedValue;
   breakpoint?: Breakpoint[];
   classes?: Classes;
@@ -45,6 +45,39 @@ class makeTenoxUI {
     this.valueRegistry = values;
     this.breakpoints = breakpoint;
     this.classes = classes;
+
+    // DOM compability
+    this.scanAndApplyStyles();
+    this.setupClassObserver();
+  }
+
+  // get the classlist from the input selector, and apply the styles from element's classname
+  private scanAndApplyStyles(): void {
+    const classes = this.htmlElement.className.split(/\s+/);
+    classes.forEach(className => {
+      if (className) {
+        this.applyStyles(className);
+      }
+    });
+  }
+  // style update/resetter
+  private updateStyles(): void {
+    // clear existing styles
+    this.htmlElement.style.cssText = "";
+    // re-apply styles
+    this.scanAndApplyStyles();
+  }
+  // observer to update style when the className is changed
+  private setupClassObserver(): void {
+    const observer = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
+        if (mutation.type === "attributes" && mutation.attributeName === "class") {
+          // update the styles
+          this.updateStyles();
+        }
+      });
+    });
+    observer.observe(this.htmlElement, { attributes: true, attributeFilter: ["class"] });
   }
   // logic for handling all defined value from the classnames
   private valueHandler(type: string, value: string, unit: string): string {
@@ -53,7 +86,6 @@ class makeTenoxUI {
     const properties = this.styleAttribute[type];
     // use `values` from registry or default value
     let resolvedValue = registryValue || value;
-
     // If no value is provided, and properties has a predefined value, use it
     if (typeof properties === "object" && "value" in properties && !properties.value.includes("{value}")) {
       return properties.value;
@@ -115,10 +147,6 @@ class makeTenoxUI {
       });
     }
   }
-  // handle custom classes
-  private setCustomClass(type: string, value: string): void {
-    (this.htmlElement.style as any)[type] = value;
-  }
   // regular `types` and `properties` handler
   private setDefaultValue(properties: string | string[], resolvedValue: string): void {
     // isArray?
@@ -133,7 +161,17 @@ class makeTenoxUI {
       }
     });
   }
-
+  // handle custom classes
+  private setCustomClass(propKey: string, value: string): void {
+    // if the property is a CSS variable
+    if (propKey.startsWith("--")) {
+      this.setCssVar(propKey, value);
+    }
+    // or use default styler
+    else {
+      (this.htmlElement.style as any)[propKey] = value;
+    }
+  }
   // match point
   private matchBreakpoint(bp: Breakpoint, prefix: string, width: number): boolean {
     // don't ask me... :(
@@ -166,7 +204,6 @@ class makeTenoxUI {
       const matchPoint = this.breakpoints.find(bp => this.matchBreakpoint(bp, breakpointPrefix, windowWidth));
 
       // apply exact styles if matches
-      console.log("responsive: ", type, value, unit, propKey);
       if (matchPoint) {
         // object `type` style
         if (this.isObjectWithValue(properties)) {
@@ -183,24 +220,25 @@ class makeTenoxUI {
       }
     };
 
-    // start the resize handler
-    handleResize();
     // apply when the screen size is changing
     window.addEventListener("resize", handleResize);
   }
 
   // utility to get the type from the property's name
   private getPropName(type: string, propKey?: string): string | string[] {
+    // css variable className
     if (type.startsWith("[--") && type.endsWith("]")) {
       return type.slice(1, -1);
     }
     // is the property was from custom value, or regular property
     const property = (this.styleAttribute[type] as any)?.property || this.styleAttribute[type];
 
-    // is the property defined as an array?
+    // get defined className property's key
     if (propKey && this.classes[propKey]) {
       return this.camelToKebab(propKey);
-    } else if (Array.isArray(property)) {
+    }
+    // is property defined as an array?
+    else if (Array.isArray(property)) {
       return property.map(this.camelToKebab);
     } else {
       return this.camelToKebab(property as string);
@@ -220,7 +258,6 @@ class makeTenoxUI {
     }
     return this.htmlElement.style.getPropertyValue(propsName);
   }
-
   // revert value when the listener is done
   private revertStyle(propsName: string | string[], styleInitValue: { [key: string]: string } | string): void {
     // if the property is defined as an object / multiple properties
@@ -234,7 +271,6 @@ class makeTenoxUI {
       this.setCssVar(propsName, styleInitValue as string);
     }
   }
-
   // pseudo handler
   private pseudoHandler(
     type: string,
@@ -250,7 +286,6 @@ class makeTenoxUI {
     const propsName = propKey ? this.getPropName("", propKey) : this.getPropName(type);
     // get initial style
     const styleInitValue = this.getInitialValue(propsName);
-
     // applyStyle logic
     const applyStyle = () => {
       // is the properties an object?
@@ -336,6 +371,22 @@ class makeTenoxUI {
     return [prefix, type, value, unit];
   }
 
+  // function to compute parent property from custom classes's className
+  private getParentClass(className: string): string[] {
+    const classObject = this.classes;
+    // store as array
+    const matchingProperties = [];
+
+    // get every single css property that have the same className
+    for (const cssProperty in classObject) {
+      if (classObject[cssProperty].hasOwnProperty(className)) {
+        matchingProperties.push(cssProperty);
+      }
+    }
+    // return an array of available properties of the className
+    return matchingProperties;
+  }
+
   // get value from custom value
   private isObjectWithValue(typeAttribute: any): typeAttribute is { property: string | string[]; value: string } {
     return (
@@ -350,6 +401,70 @@ class makeTenoxUI {
     );
   }
 
+  // default styles parser
+  private parseDefaultStyle(prefix: string | undefined, type: string, value: string, unit: string | undefined): void {
+    if (prefix) {
+      // prexied className
+      this.applyPrefixedStyle(prefix, type, value, unit);
+    } else {
+      // default style
+      this.addStyle(type, value, unit);
+    }
+  }
+  // handle the `prefix`ed className
+  private applyPrefixedStyle(prefix: string, type: string, value: string, unit: string, propKey?: string): void {
+    switch (prefix) {
+      // hover
+      case "hover":
+        this.pseudoHandler(type, value, unit, "mouseover", "mouseout", propKey);
+        break;
+      // focus effect
+      case "focus":
+        this.pseudoHandler(type, value, unit, "focus", "blur", propKey);
+        break;
+      default:
+        // responsive handler
+        this.handleResponsive(prefix, type, value, unit, propKey);
+    }
+  } // handle custom value fron `this.styleAttribute` if the type was an object
+  private handlePredefinedStyle(type: string, prefix?: string): boolean {
+    const properties = this.styleAttribute[type];
+    if (properties && this.isObjectWithValue(properties)) {
+      // use defined `value` from exact custom value if available
+      const value = properties.value;
+      if (prefix) {
+        // if className has prefixes
+        this.applyPrefixedStyle(prefix, type, value, "");
+      } else {
+        // default styler, only use the className
+        this.addStyle(type);
+      }
+      return true;
+    }
+    return false;
+  }
+  // custom className from `this.classes`
+  private handleCustomClass(type: string, prefix?: string): boolean {
+    // get all properties that have exact className
+    const propKeys = this.getParentClass(type);
+    if (propKeys.length > 0) {
+      // iterate the propeties
+      propKeys.forEach(propKey => {
+        const value = this.classes[propKey][type];
+        if (prefix) {
+          // handle prefix
+          this.applyPrefixedStyle(prefix, type, value, "", propKey);
+        } else {
+          console.log(propKey);
+          // handle default style
+          this.addStyle(type, value, "", propKey);
+        }
+        return true;
+      });
+    }
+    return false;
+  }
+  // compute styles for the className
   public applyStyles(className: string): void {
     // split className, get the prefix and the actual className
     const [prefix, type] = className.split(":");
@@ -362,80 +477,21 @@ class makeTenoxUI {
     // handle custom classes
     if (this.handleCustomClass(getType, getPrefix)) return;
 
-    // Parse and apply regular styles
+    // parse and apply regular styles
     const parts = this.parseClassName(className);
     if (!parts) return;
 
+    // get parsed className from parts
     const [parsedPrefix, parsedType, value, unit] = parts;
-    this.applyParsedStyle(parsedPrefix, parsedType, value, unit);
+    // use default styler if method above isn't used
+    this.parseDefaultStyle(parsedPrefix, parsedType, value, unit);
   }
-
-  private handlePredefinedStyle(type: string, prefix?: string): boolean {
-    const properties = this.styleAttribute[type];
-    if (properties && this.isObjectWithValue(properties)) {
-      const value = properties.value;
-      if (prefix) {
-        this.applyPrefixedStyle(prefix, type, value, "");
-      } else {
-        this.addStyle(type);
-      }
-      return true;
-    }
-    return false;
-  }
-
-  private handleCustomClass(type: string, prefix?: string): boolean {
-    const propKey = this.getParentClass(type);
-    if (propKey) {
-      const value = this.classes[propKey][type];
-      if (prefix) {
-        this.applyPrefixedStyle(prefix, type, value, "", propKey);
-      } else {
-        this.addStyle(type, value, "", propKey);
-      }
-      return true;
-    }
-    return false;
-  }
-
-  private applyParsedStyle(prefix: string | undefined, type: string, value: string, unit: string | undefined): void {
-    if (prefix) {
-      this.applyPrefixedStyle(prefix, type, value, unit);
-    } else {
-      this.addStyle(type, value, unit);
-    }
-  }
-
-  private applyPrefixedStyle(prefix: string, type: string, value: string, unit: string, propKey?: string): void {
-    switch (prefix) {
-      case "hover":
-        this.pseudoHandler(type, value, unit, "mouseover", "mouseout", propKey);
-        break;
-      case "focus":
-        this.pseudoHandler(type, value, unit, "focus", "blur", propKey);
-        break;
-      default:
-        this.handleResponsive(prefix, type, value, unit, propKey);
-    }
-  }
-
-  // get parent css property from custom classes
-  private getParentClass(className: string): string | null {
-    const classObject = this.classes;
-    for (const cssProperty in classObject) {
-      if (classObject[cssProperty].hasOwnProperty(className)) {
-        // return the property
-        return cssProperty;
-      }
-    }
-    return null;
-  }
-
   // just applyStyles, but with more confidential :)
   public applyMultiStyles(styles: string): void {
     // splitting the styles and apply each styles with applyStyles method
     styles.split(/\s+/).forEach(style => this.applyStyles(style));
   }
 }
+
 
 export { makeTenoxUI };
