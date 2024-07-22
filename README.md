@@ -6,13 +6,75 @@ This repository contain a core component of TenoxUI CSS Framework.
 
 ## Features
 
+- Utility-first based style
 - Generated as `inline-style`
 - Support all `CSS` properties (including prefixes) and values
 - `CSS` variable class names and properties
-- Responsive feature
 - `:hover` and `:focus` pseudo class
-- Easy to customizing both style logics and values
-- Work with state in js
+- Responsive feature
+- Easy to customizing style logics, values, and classNames
+- And so much more!
+
+## Overview
+
+### Single Element
+
+Example for observing only single element.
+
+```js
+// create tenoxui instance
+const tx = new makeTenoxUI({
+  // after adding the element, you can actually add classNames directly in the element's class attribute
+  element: document.querySelector(".my-element"),
+  property: {
+    bg: "background",
+    text: "color",
+    p: "padding",
+    px: ["paddingLeft", "paddingRight"]
+  }
+});
+
+// add styles
+tx.applyMultiStyles("p-1rem bg-black text-#ccf654");
+
+// or use DOM
+tx.htmlElement.classList.add("p-1rem");
+tx.htmlElement.classList.add("bg-black");
+tx.htmlElement.classList.add("text-#ccf654");
+```
+
+### Creating Mass Styler
+
+It's not utility-first if it cannot access the element's className directly. So, here's the example :
+
+```js
+// this is not only selectors you can use, you can always create something else :p
+const selectors = document.querySelectorAll("*[class]");
+
+selectors.forEach(selector => {
+  const styler = new makeTenoxUI({
+    element: selector,
+    property: {
+      bg: "background",
+      text: "color",
+      p: "padding",
+      br: "border-radius",
+      mt: "marginTop"
+    } // add your type and property here
+  });
+
+  selector.classList.forEach(className => {
+    // this method will every single className and execute it one by one
+    styler.applyStyles(className);
+  });
+});
+```
+
+Then, inside your html :
+
+```html
+<div class="bg-black text-yellow p-1rem br-6px">Hello</div>
+```
 
 ## Installation
 
