@@ -1,5 +1,5 @@
 /*!
- * tenoxui/core v1.0.0
+ * tenoxui/core v1.0.2
  * Licensed under MIT (https://github.com/tenoxui/css/blob/main/LICENSE)
  */
 
@@ -77,7 +77,10 @@ class makeTenoxUI {
         }
       });
     });
-    observer.observe(this.htmlElement, { attributes: true, attributeFilter: ["class"] });
+    observer.observe(this.htmlElement, {
+      attributes: true,
+      attributeFilter: ["class"]
+    });
   }
   // logic for handling all defined value from the classnames
   private valueHandler(type: string, value: string, unit: string): string {
@@ -225,14 +228,13 @@ class makeTenoxUI {
   }
 
   // utility to get the type from the property's name
-  private getPropName(type: string, propKey?: string): string | string[] {
+  private getPropName(type: string, propKey?: string): string | string[] | undefined {
     // css variable className
     if (type.startsWith("[--") && type.endsWith("]")) {
       return type.slice(1, -1);
     }
     // is the property was from custom value, or regular property
     const property = (this.styleAttribute[type] as any)?.property || this.styleAttribute[type];
-
     // get defined className property's key
     if (propKey && this.classes[propKey]) {
       return this.camelToKebab(propKey);
@@ -240,8 +242,10 @@ class makeTenoxUI {
     // is property defined as an array?
     else if (Array.isArray(property)) {
       return property.map(this.camelToKebab);
-    } else {
+    } else if (property) {
       return this.camelToKebab(property as string);
+    } else {
+      return undefined;
     }
   }
 
@@ -455,7 +459,6 @@ class makeTenoxUI {
           // handle prefix
           this.applyPrefixedStyle(prefix, type, value, "", propKey);
         } else {
-          
           // handle default style
           this.addStyle(type, value, "", propKey);
         }
