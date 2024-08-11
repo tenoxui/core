@@ -3,7 +3,7 @@
  * Licensed under MIT (https://github.com/tenoxui/css/blob/main/LICENSE)
  */
 
-// makeTenoxUI constructor bparam
+// makeTenoxUI constructor param
 interface MakeTenoxUIParams {
   element: HTMLElement | NodeListOf<HTMLElement>;
   property: Property;
@@ -11,17 +11,25 @@ interface MakeTenoxUIParams {
   breakpoint?: Breakpoint[];
   classes?: Classes;
 }
+// CSS properties mapping
+type CSSProperty = keyof CSSStyleDeclaration;
+type CSSPropertyOrVariable = CSSProperty | `--${string}`;
+type GetCSSProperty = CSSPropertyOrVariable | CSSPropertyOrVariable[];
+
 // type and property
 type Property = {
-  [type: string]: string | string[] | { property?: string | string[]; value?: string };
+  [type: string]: GetCSSProperty | { property?: GetCSSProperty; value?: string };
 };
-// Breakpoint
+
+// breakpoint
 type Breakpoint = { name: string; min?: number; max?: number };
+
 // value registry
 type DefinedValue = { [type: string]: { [value: string]: string } | string };
-// defined class name with exact property
+
+// defined class name from exact CSS property
 type Classes = {
-  [property: string]: {
+  [property in CSSPropertyOrVariable]?: {
     [className: string]: string;
   };
 };
