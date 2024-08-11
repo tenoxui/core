@@ -106,17 +106,23 @@ import { makeTenoxUI } from "@tenoxui/core";
 
 ```typescript
 class makeTenoxUI {
-  private htmlElement: HTMLElement;
-  private styleAttribute: Property;
-  private valueRegistry: DefinedValue;
-  private breakpoints: Breakpoint;
-
-  constructor({ element, property, values, breakpoint }: makeTenoxUIParams) {
-    this.htmlElement = element;
-    this.styleAttribute = property || {};
-    this.valueRegistry = values || {};
-    this.breakpoints = breakpoint || [];
+  constructor({ element, property = {}, values = {}, breakpoint = [], classes = {} }: MakeTenoxUIParams) {
+    this.htmlElement = element instanceof HTMLElement ? element : element[0];
+    this.styleAttribute = property;
+    this.valueRegistry = values;
+    this.breakpoints = breakpoint;
+    this.classes = classes;
   }
+  // selectors
+  private readonly htmlElement: HTMLElement;
+  // types and properties
+  private readonly styleAttribute: Property;
+  // stored values
+  private readonly valueRegistry: DefinedValue;
+  // breakpoints
+  private readonly breakpoints: Breakpoint[];
+  // classes
+  private readonly classes: Classes;
 
   /* ... */
 }
@@ -324,17 +330,20 @@ If you want to use the responsive feature, you must use it like the code above, 
 ### Types
 
 ```typescript
-interface makeTenoxUIParams {
-  element: HTMLElement;
+interface MakeTenoxUIParams {
+  element: HTMLElement | NodeListOf<HTMLElement>;
   property: Property;
   values?: DefinedValue;
-  breakpoint?: Breakpoint;
+  breakpoint?: Breakpoint[];
+  classes?: Classes;
 }
-type Property = {
-  [key: string]: string | string[] | { property?: string | string[]; value?: string };
-};
-type DefinedValue = { [key: string]: { [key: string]: string } | string };
-type Breakpoint = { name: string; min?: number; max?: number }[];
+type CSSProperty = keyof CSSStyleDeclaration;
+type CSSPropertyOrVariable = CSSProperty | `--${string}`;
+type GetCSSProperty = CSSPropertyOrVariable | CSSPropertyOrVariable[];
+type Property = { [type: string]: GetCSSProperty | { property?: GetCSSProperty; value?: string } };
+type Breakpoint = { name: string; min?: number; max?: number };
+type DefinedValue = { [type: string]: { [value: string]: string } | string };
+type Classes = { [property in CSSPropertyOrVariable]?: { [className: string]: string } };
 ```
 
 #### `addStyle`
@@ -373,22 +382,6 @@ styler.applyStyles("p-10px");
 styler.applyStyles("m-1rem");
 ```
 
-### `applyMultiStyles`
-
-This method will just apply the styles with `applyStyles` method, but can use multiple classnames at the same time.
-
-```javascript
-public applyMultiStyles(styles: string): void {}
-```
-
-Usage :
-
-```javascript
-const styler = new makeTenoxUI();
-
-styler.applyMultiStyles("p-10px m-1rem");
-```
-
 ## Usage
 
 `makeTenoxUI` usage example for creating a styles.
@@ -413,7 +406,8 @@ const styler = new makeTenoxUI({
 });
 
 // apply the styles
-styler.applyMultiStyles("bg-red text-blue");
+styler.applyStyles("bg-red");
+styler.applyStyles("text-blue");
 ```
 
 ### Multi Elements
@@ -441,7 +435,8 @@ selectors.forEach(selector => {
   });
 
   // apply the styles
-  styler.applyMultiStyles("bg-red text-blue");
+  styler.applyStyles("bg-red");
+  styler.applyStyles("text-blue");
 });
 ```
 
